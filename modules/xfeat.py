@@ -22,7 +22,7 @@ class XFeat(nn.Module):
 
 	def __init__(self, weights = os.path.abspath(os.path.dirname(__file__)) + '/../weights/xfeat.pt', top_k = 4096, detection_threshold=0.05):
 		super().__init__()
-		self.dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+		self.dev = torch.device('cuda' if torch.cuda.is_available()and torch.cuda.device_count() else 'cpu')
 		self.net = XFeatModel().to(self.dev).eval()
 		self.top_k = top_k
 		self.detection_threshold = detection_threshold
@@ -30,6 +30,7 @@ class XFeat(nn.Module):
 		if weights is not None:
 			if isinstance(weights, str):
 				print('loading weights from: ' + weights)
+				print(self.dev)
 				self.net.load_state_dict(torch.load(weights, map_location=self.dev))
 			else:
 				self.net.load_state_dict(weights)
@@ -303,7 +304,7 @@ class XFeat(nn.Module):
 
 		return coords
 
-	def refine_matches(self, d0, d1, matches, batch_idx, fine_conf = 0.25):
+	def refine_matches(self, d0, d1, matches, batch_idx, fine_conf = 0.25,return_idx=False):
 		idx0, idx1 = matches[batch_idx]
 		feats1 = d0['descriptors'][batch_idx][idx0]
 		feats2 = d1['descriptors'][batch_idx][idx1]
@@ -319,6 +320,8 @@ class XFeat(nn.Module):
 		mkpts_0 += offsets* (sc0[:,None]) #*0.9 #* (sc0[:,None])
 
 		mask_good = conf > fine_conf
+		if return_idx:
+			return torch.cat([mkpts_0, mkpts_1], dim=-1), mask_good
 		mkpts_0 = mkpts_0[mask_good]
 		mkpts_1 = mkpts_1[mask_good]
 
